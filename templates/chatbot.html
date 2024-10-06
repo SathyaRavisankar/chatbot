@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <link href="/static/style.css" rel="stylesheet">
+    <link rel="icon" href="/static/images/img.png" type="image/x-icon"> <!-- Replace with your favicon file name -->
+    <title>Chatbot</title>
+
+</head>
+<body>
+<h2>Chatbot</h2>
+<div id="messages"></div>
+<div id="chat-container">
+    <div id="input-container">
+        <input type="text" id="input-message" placeholder="Type your message here..." />
+        <button id="send-button">Send</button>
+    </div>
+</div>
+<script>
+    document.getElementById('send-button').onclick = async function() {
+        const userMessage = document.getElementById('input-message').value;
+        if (!userMessage) return;
+
+        // Display user message
+        displayMessage(userMessage, 'user-message');
+
+        // Clear input field
+        document.getElementById('input-message').value = '';
+
+        // Display thinking message
+        const thinkingMessageElement = displayThinkingMessage();
+
+        // Send user message to backend
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ message: userMessage })
+        });
+
+        const data = await response.json();
+        const botReply = data.reply || 'Error: Unable to get a response.';
+
+        // Remove thinking message and display bot reply
+        thinkingMessageElement.remove(); // Remove thinking message
+        displayMessage(botReply, 'bot-message');
+    };
+
+    function displayThinkingMessage() {
+        const thinkingMessageElement = document.createElement('div');
+        thinkingMessageElement.className = 'message bot-message';
+        thinkingMessageElement.textContent = '🧐🧐🧐🧐🧐...';  // You can customize this message
+        document.getElementById('messages').appendChild(thinkingMessageElement);
+        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;  // Scroll to bottom
+        return thinkingMessageElement; // Return the element for later removal
+    }
+
+    function displayMessage(message, messageType) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${messageType}`;
+
+        // Check if the message requests code
+        if (requestsCode(message)) {
+            messageElement.innerHTML = `<pre><code>${escapeHtml(message)}</code></pre>`;
+        } else if (isStructuredText(message)) {
+            messageElement.innerHTML = formatStructuredText(message);
+        } else {
+            messageElement.textContent = message;
+        }
+
+        document.getElementById('messages').appendChild(messageElement);
+        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;  // Scroll to bottom
+    }
+
+    // Function to check if the user's input requests code
+    function requestsCode(message) {
+        const codeRequestKeywords = ['code', 'example', 'function', 'implement', 'write a program', 'show me how'];
+        return codeRequestKeywords.some(keyword => message.toLowerCase().includes(keyword));
+    }
+
+    //Function to check if a message is structured text (like lists)
+    function isStructuredText(message) {
+        return message.includes('*') || message.includes('-'); // Basic check for lists
+    }
+
+    // Function to format structured text into HTML lists
+    function formatStructuredText(message) {
+        const lines = message.split('\n');
+        let formattedText = '<ul>';
+        for (let line of lines) {
+            if (line.trim().startsWith('*') || line.trim().startsWith('-')) {
+                formattedText += `<li>${escapeHtml(line.replace(/^[* -]\s*/, ''))}</li>`;
+            }
+        }
+        formattedText += '</ul>';
+        return formattedText;
+    }
+
+    // Function to escape HTML special characters
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+</body>
+</html>
